@@ -25,14 +25,18 @@ def leggi(url, binario=False):
 def ultimi_file(n=12):
     """I nomi delle ultime n immagini (oggi e, se servono, ieri), dalla piu' vecchia."""
     out = []
+    errori = []
     for giorno in (time.strftime('%Y%m%d', time.gmtime()), time.strftime('%Y%m%d', time.gmtime(time.time() - 86400))):
         try:
             elenco = sorted(set(re.findall(r'T_PABV22_C_LZIB_(\d{14})\.hdf', leggi(BASE + giorno + '/'))))
-        except Exception:
+        except Exception as e:
+            errori.append('%s: %s %s' % (giorno, type(e).__name__, str(e)[:120]))
             continue
         out = [(giorno, e) for e in elenco] + out
         if len(out) >= n:
             break
+    if not out and errori:
+        print('::error::elenco SHMU non raggiungibile: ' + ' | '.join(errori))
     return out[-n:]
 
 
@@ -40,7 +44,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     elenco = ultimi_file(12)
     if not elenco:
-        print('SK: nessun file disponibile')
+        print('::error::SK: nessun file radar trovato (elenco vuoto)')
         sys.exit(1)
     griglia = None
     frames = []
