@@ -1,0 +1,33 @@
+# Prepara ogni 5 minuti le immagini del radar di Slovacchia (SHMÚ) e Austria (GeoSphere) e le pubblica su dati.barbel.app/radar/.
+name: radar
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+concurrency:
+  group: radar
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Slovacchia (SHMÚ)
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python render_sk.py --carica
+      - name: Austria (GeoSphere), solo ogni 15 minuti
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          if [ "$(( 10#$(date -u +%M) % 15 ))" -lt 5 ]; then python render_at.py --carica; else echo "salto: non e' il turno dell'Austria"; fi
