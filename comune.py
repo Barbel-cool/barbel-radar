@@ -80,6 +80,7 @@ def _intermedi(host, porta=443):
     import socket
     from cryptography import x509
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.serialization import pkcs7
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -97,7 +98,7 @@ def _intermedi(host, porta=443):
         dati = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'BarbelApp/1.0 (hello@barbel.app)'}), timeout=30).read()
         trovati = None
         for carica in (lambda d: [x509.load_der_x509_certificate(d)], lambda d: [x509.load_pem_x509_certificate(d)],
-                       lambda d: serialization.pkcs7.load_der_pkcs7_certificates(d), lambda d: serialization.pkcs7.load_pem_pkcs7_certificates(d)):
+                       lambda d: pkcs7.load_der_pkcs7_certificates(d), lambda d: pkcs7.load_pem_pkcs7_certificates(d)):
             try:
                 trovati = carica(dati)
                 break
