@@ -81,4 +81,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:  # il motivo si vede nelle annotazioni di GitHub (mai contiene le chiavi)
+        print('::error::%s: %s' % (type(e).__name__, str(e)[:400]))
+        sys.exit(1)
