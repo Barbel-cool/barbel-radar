@@ -95,11 +95,19 @@ def _intermedi(host, porta=443):
         if not url:
             break
         dati = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'BarbelApp/1.0 (hello@barbel.app)'}), timeout=30).read()
-        try:
-            cert = x509.load_der_x509_certificate(dati)
-        except Exception:
-            cert = x509.load_pem_x509_certificate(dati)
-        pem.append(cert.public_bytes(serialization.Encoding.PEM).decode())
+        trovati = None
+        for carica in (lambda d: [x509.load_der_x509_certificate(d)], lambda d: [x509.load_pem_x509_certificate(d)],
+                       lambda d: serialization.pkcs7.load_der_pkcs7_certificates(d), lambda d: serialization.pkcs7.load_pem_pkcs7_certificates(d)):
+            try:
+                trovati = carica(dati)
+                break
+            except Exception:
+                continue
+        if not trovati:
+            raise ValueError('certificato intermedio illeggibile da %s (%d byte, inizia con %r)' % (url, len(dati), dati[:12]))
+        for c in trovati:
+            pem.append(c.public_bytes(serialization.Encoding.PEM).decode())
+        cert = trovati[0]
     return pem
 
 
