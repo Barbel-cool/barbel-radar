@@ -3,3 +3,5 @@ h5py
 pyproj
 pillow
 boto3
+certifi
+cryptography

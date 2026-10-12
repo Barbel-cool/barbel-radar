@@ -18,8 +18,7 @@ UA = {'User-Agent': 'BarbelApp/1.0 (hello@barbel.app)'}
 
 
 def leggi(url, binario=False):
-    d = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read()
-    return d if binario else d.decode('utf-8', 'replace')
+    return C.apri(url, binario)
 
 
 def ultimi_file(n=12):

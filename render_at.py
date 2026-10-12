@@ -18,9 +18,8 @@ LARGHEZZA = 900
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    rq = urllib.request.Request(URL, headers={'User-Agent': 'BarbelApp/1.0 (hello@barbel.app)'})
     tmp = os.path.join(OUT, 'nowcast.nc')
-    open(tmp, 'wb').write(urllib.request.urlopen(rq, timeout=90).read())
+    open(tmp, 'wb').write(C.apri(URL, True, 90))
     f = h5py.File(tmp, 'r')
     rr = np.array(f['rr'][:], dtype=float)  # (tempo, y, x), mm in 15 minuti
     lat, lon = np.array(f['lat'][:]), np.array(f['lon'][:])

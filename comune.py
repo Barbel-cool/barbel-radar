@@ -68,3 +68,62 @@ def carica_cartella(cartella, prefisso):
         s3.put_object(Bucket=BUCKET, Key='%s/%s' % (prefisso, f), Body=open(os.path.join(cartella, f), 'rb').read(), ContentType=tipo, CacheControl='no-cache')
         n += 1
     return n
+
+
+# ---------------- scaricamento con catena di certificati incompleta ----------------
+# Alcuni siti pubblici (per esempio opendata.shmu.sk) non mandano il certificato intermedio: i browser lo cercano da soli, Python no.
+# Qui, se la verifica fallisce, si segue l'indirizzo "CA Issuers" scritto nel certificato del sito, si scarica l'intermedio e si riprova SEMPRE con la verifica attiva.
+import ssl, tempfile, urllib.parse, urllib.request
+
+
+def _intermedi(host, porta=443):
+    import socket
+    from cryptography import x509
+    from cryptography.hazmat.primitives import serialization
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with socket.create_connection((host, porta), timeout=30) as s, ctx.wrap_socket(s, server_hostname=host) as t:
+        der = t.getpeercert(binary_form=True)
+    pem, cert = [], x509.load_der_x509_certificate(der)
+    for _ in range(4):
+        try:
+            aia = cert.extensions.get_extension_for_class(x509.AuthorityInformationAccess).value
+        except Exception:
+            break
+        url = next((d.access_location.value for d in aia if d.access_method == x509.oid.AuthorityInformationAccessOID.CA_ISSUERS), None)
+        if not url:
+            break
+        dati = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'BarbelApp/1.0 (hello@barbel.app)'}), timeout=30).read()
+        try:
+            cert = x509.load_der_x509_certificate(dati)
+        except Exception:
+            cert = x509.load_pem_x509_certificate(dati)
+        pem.append(cert.public_bytes(serialization.Encoding.PEM).decode())
+    return pem
+
+
+def _contesto_con_intermedi(host):
+    import certifi
+    base = open(certifi.where(), encoding='utf-8').read()
+    f = tempfile.NamedTemporaryFile('w', suffix='.pem', delete=False, encoding='utf-8')
+    f.write(base + '\n' + '\n'.join(_intermedi(host)))
+    f.close()
+    return ssl.create_default_context(cafile=f.name)
+
+
+_CTX = {}
+
+
+def apri(url, binario=False, timeout=60):
+    """GET di un indirizzo https; se il certificato del sito manca dell'intermedio lo recupera e riprova con la verifica attiva."""
+    rq = urllib.request.Request(url, headers={'User-Agent': 'BarbelApp/1.0 (hello@barbel.app)'})
+    host = urllib.parse.urlparse(url).hostname
+    try:
+        d = urllib.request.urlopen(rq, timeout=timeout, context=_CTX.get(host)).read()
+    except urllib.error.URLError as e:
+        if 'CERTIFICATE_VERIFY_FAILED' not in str(e) or host in _CTX:
+            raise
+        _CTX[host] = _contesto_con_intermedi(host)
+        d = urllib.request.urlopen(rq, timeout=timeout, context=_CTX[host]).read()
+    return d if binario else d.decode('utf-8', 'replace')
